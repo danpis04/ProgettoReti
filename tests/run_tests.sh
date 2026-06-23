@@ -254,6 +254,118 @@ check_single_user_behavior() {
     cleanup
 }
 
+check_manual_ack_and_random_seed() {
+    local fake_log="$WORKDIR/manual_ack_fake_lavagna.log"
+    local user_log="$WORKDIR/manual_ack_user.log"
+    local user_fifo="$WORKDIR/manual_ack_user.in"
+    local cost_count
+    local first_cost
+    local second_cost
+
+    cleanup
+    mkfifo "$user_fifo"
+    exec 7<>"$user_fifo"
+
+    python3 - "$fake_log" <<'PY' &
+import socket
+import struct
+import sys
+import time
+
+MSG_HELLO = 1
+MSG_AVAILABLE_CARD = 10
+MSG_ACK_CARD = 12
+
+log_path = sys.argv[1]
+
+def log(text):
+    with open(log_path, "a", encoding="utf-8") as output:
+        output.write(text + "\n")
+        output.flush()
+
+def recv_all(conn, size):
+    data = b""
+    while len(data) < size:
+        chunk = conn.recv(size - len(data))
+        if not chunk:
+            return None
+        data += chunk
+    return data
+
+def recv_msg(conn):
+    header = recv_all(conn, 8)
+    if header is None:
+        return None, None
+    msg_type, length = struct.unpack("!II", header)
+    payload = recv_all(conn, length) if length else b""
+    if payload is None:
+        return None, None
+    return msg_type, payload
+
+def send_available(conn, card_id):
+    text = f"card manuale {card_id}".encode("ascii") + b"\0"
+    payload = struct.pack("!III", card_id, 2, 0) + text
+    conn.sendall(struct.pack("!II", MSG_AVAILABLE_CARD, len(payload)) + payload)
+    log(f"AVAILABLE_CARD {card_id}")
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 5678))
+    server.listen(1)
+    conn, _ = server.accept()
+    with conn:
+        msg_type, payload = recv_msg(conn)
+        if msg_type != MSG_HELLO:
+            log(f"MESSAGGIO_INATTESO {msg_type}")
+            sys.exit(1)
+        port = struct.unpack("!I", payload)[0]
+        log(f"HELLO {port}")
+        send_available(conn, 123)
+        send_available(conn, 124)
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            conn.settimeout(max(0.1, deadline - time.time()))
+            try:
+                msg_type, payload = recv_msg(conn)
+            except socket.timeout:
+                break
+            if msg_type is None:
+                break
+            if msg_type == MSG_HELLO and len(payload) == 4:
+                port = struct.unpack("!I", payload)[0]
+                log(f"HELLO_MANUALE {port}")
+                continue
+            if msg_type == MSG_ACK_CARD and len(payload) == 4:
+                card_id = struct.unpack("!I", payload)[0]
+                log(f"ACK_CARD {card_id}")
+                break
+            log(f"MESSAGGIO {msg_type}")
+PY
+    PIDS+=("$!")
+    sleep 1
+
+    start_utente_on_port 5681 "$user_fifo" "$user_log"
+    wait_for_count "due AVAILABLE_CARD ricevuti per random" 10 'AVAILABLE_CARD ricevuto' "$user_log" 2
+
+    cost_count="$(grep 'AVAILABLE_CARD ricevuto' "$user_log" | sed -E 's/.*costo locale ([0-9-]+),.*/\1/' | sort -u | wc -l)"
+    if [ "$cost_count" -lt 2 ]; then
+        first_cost="$(grep 'AVAILABLE_CARD ricevuto' "$user_log" | sed -n '1s/.*costo locale \([0-9-]*\),.*/\1/p')"
+        second_cost="$(grep 'AVAILABLE_CARD ricevuto' "$user_log" | sed -n '2s/.*costo locale \([0-9-]*\),.*/\1/p')"
+        fail "costi random distinti ($first_cost, $second_cost)"
+    fi
+    pass "costi random distinti"
+
+    printf 'HELLO\n' >&7
+    wait_for_log "HELLO manuale inviato da terminale" 5 'HELLO_MANUALE 5681' "$fake_log"
+
+    printf 'ACK_CARD 124\n' >&7
+    wait_for_log "ACK_CARD manuale inviato da terminale" 5 'Invio ACK_CARD per card 124' "$user_log"
+    wait_for_log "ACK_CARD manuale ricevuto dalla lavagna finta" 10 'ACK_CARD 124' "$fake_log"
+
+    exec 7>&-
+    cleanup
+}
+
 check_user_churn() {
     local lavagna_log="$WORKDIR/churn_lavagna.log"
     local u1_fifo="$WORKDIR/churn_u1.in"
@@ -454,6 +566,12 @@ check_terminal_commands() {
         fail "porta primo utente comandi"
     fi
 
+    printf 'PONG_LAVAGNA\n' >&7
+    wait_for_log "PONG_LAVAGNA da utente" 10 "PONG_LAVAGNA ricevuto dall'utente $u1_port" "$lavagna_log"
+
+    printf 'SHOW_LAVAGNA\n' >&7
+    wait_for_count "SHOW_LAVAGNA da utente" 10 'Lavagna 1' "$lavagna_log" 2
+
     printf 'SEND_USER_LIST\n' >&7
     wait_for_log "SEND_USER_LIST ricevuta dall'utente" 10 'Lista utenti ricevuta' "$WORKDIR/commands_u5679.log"
 
@@ -473,6 +591,7 @@ check_lavagna_commands_and_ping() {
     local lavagna_fifo="$WORKDIR/lavagna.in"
     local u1_fifo="$WORKDIR/cmd_u1.in"
     local u2_fifo="$WORKDIR/cmd_u2.in"
+    local lavagna_pid
 
     cleanup
     mkfifo "$lavagna_fifo" "$u1_fifo" "$u2_fifo"
@@ -481,7 +600,8 @@ check_lavagna_commands_and_ping() {
     exec 8<>"$u2_fifo"
 
     "$ROOT/lavagna" < "$lavagna_fifo" > "$lavagna_log" 2>&1 &
-    PIDS+=("$!")
+    lavagna_pid="$!"
+    PIDS+=("$lavagna_pid")
     sleep 1
 
     start_utente_on_port 5681 "$u1_fifo" "$WORKDIR/cmd_u5681.log"
@@ -510,6 +630,15 @@ check_lavagna_commands_and_ping() {
     printf 'SEND_USER_LIST 5684\n' >&9
     wait_for_log "SEND_USER_LIST da lavagna" 10 'Lista utenti ricevuta' "$WORKDIR/cmd_u5684.log"
 
+    printf 'QUIT\n' >&9
+    sleep 1
+    if kill -0 "$lavagna_pid" 2>/dev/null; then
+        fail "QUIT da lavagna"
+    fi
+    wait "$lavagna_pid" 2>/dev/null || true
+    drop_pid "$lavagna_pid"
+    pass "QUIT da lavagna"
+
     exec 7>&-
     exec 8>&-
     exec 9>&-
@@ -526,6 +655,7 @@ main() {
     check_duplicate_explicit_port
     check_automatic_ports
     check_single_user_behavior
+    check_manual_ack_and_random_seed
     check_payload_validation
     check_user_count_range_1_to_50
     check_user_churn

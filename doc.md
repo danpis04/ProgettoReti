@@ -23,7 +23,7 @@ srand(time(NULL));
 int n = rand();
 ```
 
-Il costo viene inviato agli altri utenti con `CHOOSE_USER`. Quando un utente ha raccolto tutti i costi, sceglie il valore minore; in caso di parita' vince la porta piu' bassa. Solo il vincitore invia `ACK_CARD`, la lavagna sposta la card in `Doing`, il worker dell'utente simula l'esecuzione con `sleep()` e infine invia `CARD_DONE`, facendo passare la card in `Done`.
+Il seed viene inizializzato una sola volta all'avvio dell'utente; a ogni `AVAILABLE_CARD` viene poi chiamato `rand()` per ottenere il costo della card. Per evitare che utenti avviati nello stesso secondo producano sempre il primo valore identico, la sequenza viene avanzata in base alla porta dell'utente. Il costo viene inviato agli altri utenti con `CHOOSE_USER`. Quando un utente ha raccolto tutti i costi, sceglie il valore minore; in caso di parita' vince la porta piu' bassa. Solo il vincitore invia `ACK_CARD`, la lavagna sposta la card in `Doing`, il worker dell'utente simula l'esecuzione con `sleep()` e infine invia `CARD_DONE`, facendo passare la card in `Done`.
 
 Le strutture dati sono array a dimensione fissa per utenti e card. Il pregio e' la semplicita': gli accessi sono lineari ma leggibili, e il limite massimo e' esplicito. Il difetto e' che una versione produttiva dovrebbe usare contenitori dinamici o liste per evitare un tetto compilato nel programma. Per l'ambito del progetto, 50 utenti e 128 card sono sufficienti a coprire gli scenari previsti mantenendo il codice compatto.
 
@@ -67,3 +67,9 @@ La pulizia dei file generati avviene con:
 ```sh
 make clean
 ```
+
+## Comandi da terminale
+
+La lavagna accetta `SHOW_LAVAGNA`, `SHOW_UTENTI`, `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `SEND_USER_LIST <porta>`, `PING_USER <porta>` e `QUIT`.
+
+Ogni utente accetta `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `SHOW_LAVAGNA`, `SEND_USER_LIST`, `HELLO`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`. `ACK_CARD` e `CARD_DONE` da terminale usano la card corrente dell'utente; l'id opzionale serve a rifiutare invii accidentali su una card diversa.

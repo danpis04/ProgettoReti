@@ -58,6 +58,24 @@ static int parse_available_card(const struct Message *msg, int *card_id, int *to
     return 0;
 }
 
+static int parse_optional_card_id(const struct Message *msg, int *card_id) {
+    char *endptr;
+    long value;
+
+    *card_id = -1;
+    if (msg->payload_length == 0) {
+        return 0;
+    }
+
+    value = strtol((const char *)msg->payload, &endptr, 10);
+    if (*endptr != '\0' || value <= 0) {
+        return -1;
+    }
+
+    *card_id = (int)value;
+    return 0;
+}
+
 static int handle_stdin_message(int server_fd, const struct Message *msg) {
     switch (msg->type) {
         case MSG_HELLO:
@@ -74,18 +92,37 @@ static int handle_stdin_message(int server_fd, const struct Message *msg) {
             }
             break;
 
-        case MSG_CARD_DONE: {
-            int requested_card_id = -1;
+        case MSG_ACK_CARD: {
+            int requested_card_id;
             int card_id;
 
-            if (msg->payload_length > 0) {
-                char *endptr;
-                long value = strtol((const char *)msg->payload, &endptr, 10);
-                if (*endptr != '\0' || value <= 0) {
-                    fprintf(stderr, "Uso: CARD_DONE [id]\n");
-                    break;
-                }
-                requested_card_id = (int)value;
+            if (parse_optional_card_id(msg, &requested_card_id) < 0) {
+                fprintf(stderr, "Uso: ACK_CARD [id]\n");
+                break;
+            }
+            if (!utente_take_manual_ack_action(requested_card_id, &card_id)) {
+                fprintf(stderr, "ACK_CARD non disponibile per l'utente corrente\n");
+                break;
+            }
+
+            fprintf(stdout, "Invio ACK_CARD per card %d\n", card_id);
+            fflush(stdout);
+            if (send_server_ack_card(server_fd, card_id) < 0) {
+                return -1;
+            }
+            if (utente_start_worker(worker_thread_function) < 0) {
+                return -1;
+            }
+            break;
+        }
+
+        case MSG_CARD_DONE: {
+            int requested_card_id;
+            int card_id;
+
+            if (parse_optional_card_id(msg, &requested_card_id) < 0) {
+                fprintf(stderr, "Uso: CARD_DONE [id]\n");
+                break;
             }
 
             if (!utente_take_manual_done_action(requested_card_id, &card_id)) {
@@ -99,6 +136,16 @@ static int handle_stdin_message(int server_fd, const struct Message *msg) {
             }
             break;
         }
+
+        case MSG_PONG_LAVAGNA:
+            if (msg->payload_length != 0) {
+                fprintf(stderr, "Uso: PONG_LAVAGNA\n");
+                break;
+            }
+            if (send_server_pong(server_fd) < 0) {
+                return -1;
+            }
+            break;
 
         case MSG_QUIT:
             (void)send_message(server_fd, msg);
@@ -145,7 +192,6 @@ static int handle_available_card(const struct Message *msg) {
         return -1;
     }
 
-    srand(time(NULL));
     int n = rand();
 
     utente_start_election(card_id, text, total_users, peers, peer_count, n);

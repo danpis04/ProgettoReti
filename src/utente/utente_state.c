@@ -80,6 +80,10 @@ void utente_init(in_port_t port) {
     utente.port = port;
     utente.state = STATE_STARTING_P2P;
     utente.card_id = -1;
+    srand(time(NULL));
+    for (in_port_t current_port = MIN_USER_PORT; current_port < port; current_port++) {
+        (void)rand();
+    }
     pthread_mutex_init(&utente.mutex, NULL);
 }
 
@@ -177,6 +181,22 @@ bool utente_take_ack_action(int *card_id) {
     pthread_mutex_lock(&utente.mutex);
     if (utente.state == STATE_ACK_PENDING) {
         *card_id = utente.card_id;
+        ready = true;
+    }
+    pthread_mutex_unlock(&utente.mutex);
+
+    return ready;
+}
+
+bool utente_take_manual_ack_action(int requested_card_id, int *card_id) {
+    bool ready = false;
+
+    pthread_mutex_lock(&utente.mutex);
+    if ((utente.state == STATE_CHOOSING || utente.state == STATE_ACK_PENDING)
+            && utente.card_id != -1
+            && (requested_card_id <= 0 || requested_card_id == utente.card_id)) {
+        *card_id = utente.card_id;
+        utente.state = STATE_WORKING;
         ready = true;
     }
     pthread_mutex_unlock(&utente.mutex);

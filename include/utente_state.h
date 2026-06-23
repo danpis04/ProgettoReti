@@ -49,6 +49,7 @@ void utente_start_election(int card_id, const char *text, int total_users,
                            const in_port_t *peers, int peer_count, int own_cost);
 void utente_record_choice(int card_id, in_port_t port, int cost);
 bool utente_take_ack_action(int *card_id);
+bool utente_take_manual_ack_action(int requested_card_id, int *card_id);
 void utente_mark_working(void);
 void utente_mark_done_pending(int card_id);
 bool utente_take_done_action(int *card_id);

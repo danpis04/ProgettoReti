@@ -10,7 +10,7 @@ Ogni messaggio ha un header binario fisso di 8 byte: tipo del comando e lunghezz
 
 All'avvio la lavagna crea 10 card in colonna `To Do` e stampa lo stato. Ogni utente puo' essere eseguito come `./utente <porta>`, usando una porta a partire da `5679`, oppure come `./utente`, scegliendo autonomamente la prima porta libera da `5679` in poi. Appena avviato registra la propria presenza con `HELLO`. Quando ci sono almeno due utenti e nessuna negoziazione aperta, la lavagna invia a tutti `AVAILABLE_CARD` per la prima card `To Do`, includendo per ogni destinatario la lista degli altri utenti.
 
-Alla ricezione di `AVAILABLE_CARD`, ciascun utente genera un costo con `rand()`, lo registra localmente e invia `CHOOSE_USER` ai peer indicati dalla lavagna. Quando un utente ha raccolto tutti i costi, sceglie il costo minore; in caso di parita' vince la porta piu' bassa. Solo il vincitore invia `ACK_CARD`, quindi la lavagna sposta la card in `Doing`. Il worker dell'utente simula l'esecuzione con `sleep()` e poi invia `CARD_DONE`, facendo passare la card in `Done`. A quel punto la lavagna puo' offrire la card successiva.
+Alla ricezione di `AVAILABLE_CARD`, ciascun utente genera un costo con `rand()`, lo registra localmente e invia `CHOOSE_USER` ai peer indicati dalla lavagna. Il seed viene impostato una sola volta all'inizializzazione dell'utente con `srand(time(NULL))`; la sequenza viene differenziata in base alla porta, cosi' utenti avviati nello stesso secondo non partono sempre dallo stesso costo. Quando un utente ha raccolto tutti i costi, sceglie il costo minore; in caso di parita' vince la porta piu' bassa. Solo il vincitore invia `ACK_CARD`, quindi la lavagna sposta la card in `Doing`. Il worker dell'utente simula l'esecuzione con `sleep()` e poi invia `CARD_DONE`, facendo passare la card in `Done`. A quel punto la lavagna puo' offrire la card successiva.
 
 ## Struttura e gestione dello stato
 
@@ -49,4 +49,4 @@ Esecuzione di quattro utenti:
 
 In alternativa e' possibile lanciare piu' istanze con `./utente`; in quel caso ogni processo seleziona la prima porta libera a partire da `5679`.
 
-Comandi utili da terminale: `SHOW_LAVAGNA`, `SHOW_UTENTI`, `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `PING_USER <porta>`, `SEND_USER_LIST <porta>` e `QUIT`. Dagli utenti si possono inviare `CREATE_CARD`, `SHOW_LAVAGNA`, `SEND_USER_LIST`, `HELLO` e `QUIT`.
+Comandi utili da terminale sulla lavagna: `SHOW_LAVAGNA`, `SHOW_UTENTI`, `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `PING_USER <porta>`, `SEND_USER_LIST <porta>` e `QUIT`. Dagli utenti si possono inviare `CREATE_CARD`, `SHOW_LAVAGNA`, `SEND_USER_LIST`, `HELLO`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`.
