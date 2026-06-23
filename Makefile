@@ -29,10 +29,8 @@ utente: utente.o $(COMMON_OBJ) $(UTENTE_OBJ)
 run-lavagna: lavagna
 	./lavagna
 
-run-utente:
-	@[ -n "$(PORT)" ] || { echo "Uso: make run-utente PORT=5679"; exit 1; }
-	$(MAKE) utente
-	./utente $(PORT)
+run-utente: utente
+	./utente 5679
 
 clean:
 	rm -f $(TARGETS) lavagna.o utente.o $(COMMON_OBJ) $(LAVAGNA_OBJ) $(UTENTE_OBJ)
