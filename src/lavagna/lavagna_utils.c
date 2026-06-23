@@ -108,7 +108,8 @@ int send_available_card(struct Server *server) {
     int user_count;
     int card_id;
 
-    if (database_get_offered_card() != -1 || database_get_num_users() <= 1) {
+    if (database_get_offered_card() != -1 || database_has_doing_cards()
+            || database_get_num_users() <= 1) {
         return 0;
     }
 

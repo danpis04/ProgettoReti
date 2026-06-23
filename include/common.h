@@ -23,7 +23,7 @@
 #define SERVER_PORT 5678
 #define MIN_USER_PORT 5679
 
-#define MAX_USERS 32
+#define MAX_USERS 50
 #define MAX_CARDS 128
 #define CARD_TEXT_SIZE 256
 #define MAX_PAYLOAD_SIZE 1024

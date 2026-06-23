@@ -67,6 +67,7 @@ int database_get_next_todo_card(void);
 int database_get_offered_card(void);
 void database_set_offered_card(int card_id);
 void database_clear_offered_card(void);
+bool database_has_doing_cards(void);
 int database_card_get_text(int card_id, char *buffer, size_t buffer_size);
 enum CardStatus database_card_get_status(int card_id);
 in_port_t database_card_get_user(int card_id);

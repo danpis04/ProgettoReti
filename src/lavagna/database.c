@@ -380,6 +380,16 @@ void database_clear_offered_card(void) {
     database.offered_card_id = -1;
 }
 
+bool database_has_doing_cards(void) {
+    for (int i = 0; i < MAX_CARDS; i++) {
+        if (database.cards[i].used && database.cards[i].status == CARD_STATUS_DOING) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 int database_card_get_text(int card_id, char *buffer, size_t buffer_size) {
     int index = find_card_index(card_id);
     if (index < 0 || buffer == NULL || buffer_size == 0) {
@@ -408,8 +418,12 @@ in_port_t database_card_get_user(int card_id) {
 
 int database_card_doing(in_port_t port, int card_id) {
     int index = find_card_index(card_id);
+    int user_index = find_user_index(port);
 
-    if (index < 0 || database.cards[index].status != CARD_STATUS_TODO) {
+    if (index < 0 || user_index < 0 || database.cards[index].status != CARD_STATUS_TODO) {
+        return -1;
+    }
+    if (database.users[user_index].status != USER_STATUS_IDLE) {
         return -1;
     }
     if (database_user_assign_card(port, card_id) < 0) {
