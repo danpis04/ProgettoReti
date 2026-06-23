@@ -30,11 +30,15 @@ run-lavagna: lavagna
 	./lavagna
 
 run-utente: utente
-	./utente 5679
+	./utente
+
+run-server: run-lavagna
+
+run-client: run-utente
 
 clean:
 	rm -f $(TARGETS) lavagna.o utente.o $(COMMON_OBJ) $(LAVAGNA_OBJ) $(UTENTE_OBJ)
 
 rebuild: clean all
 
-.PHONY: all clean rebuild run-lavagna run-utente
+.PHONY: all clean rebuild run-lavagna run-utente run-server run-client

@@ -220,6 +220,37 @@ static int parse_port_argument(const char *text, in_port_t *port) {
     return 0;
 }
 
+static int start_p2p_on_port(in_port_t port) {
+    utente_init(port);
+
+    if (utente_start_p2p(p2p_server_function) < 0) {
+        utente_cleanup();
+        return -1;
+    }
+
+    while (utente_get_state() == STATE_STARTING_P2P) {
+        pause_milliseconds(50);
+    }
+
+    if (utente_get_state() == STATE_CONNECTING) {
+        return 0;
+    }
+
+    utente_wait_for_p2p_shutdown();
+    utente_cleanup();
+    return -1;
+}
+
+static in_port_t start_p2p_on_first_free_port(void) {
+    for (int candidate = MIN_USER_PORT; candidate <= 65535; candidate++) {
+        if (start_p2p_on_port((in_port_t)candidate) == 0) {
+            return (in_port_t)candidate;
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     in_port_t port;
     struct Client *client;
@@ -230,8 +261,13 @@ int main(int argc, char *argv[]) {
         .stdin_message_callback = handle_stdin
     };
 
-    if (argc != 2 || parse_port_argument(argv[1], &port) < 0) {
-        fprintf(stderr, "Uso: %s <porta>\n", argv[0]);
+    if (argc > 2) {
+        fprintf(stderr, "Uso: %s [porta]\n", argv[0]);
+        return 1;
+    }
+
+    if (argc == 2 && parse_port_argument(argv[1], &port) < 0) {
+        fprintf(stderr, "Porta utente non valida\n");
         return 1;
     }
 
@@ -243,19 +279,16 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    utente_init(port);
-    if (utente_start_p2p(p2p_server_function) < 0) {
-        fprintf(stderr, "Avvio server P2P fallito\n");
-        utente_cleanup();
-        return 1;
+    if (argc == 2) {
+        if (start_p2p_on_port(port) < 0) {
+            fprintf(stderr, "Porta utente %u non disponibile\n", (unsigned)port);
+            return 1;
+        }
+    } else {
+        port = start_p2p_on_first_free_port();
     }
-
-    while (utente_get_state() == STATE_STARTING_P2P) {
-        pause_milliseconds(50);
-    }
-
-    if (utente_get_state() == STATE_SHUTTING_DOWN) {
-        utente_cleanup();
+    if (port == 0) {
+        fprintf(stderr, "Nessuna porta utente disponibile\n");
         return 1;
     }
 
@@ -277,6 +310,7 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(stdout, "Utente avviato sulla porta %u\n", (unsigned)port);
+    fflush(stdout);
     if (send_server_hello(client->server_socket) < 0) {
         fprintf(stderr, "Invio HELLO fallito\n");
         client_destroy(client);
