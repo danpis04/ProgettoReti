@@ -13,6 +13,6 @@ void *worker_thread_function(void *arg) {
     fprintf(stdout, "Lavoro completato sulla card %d\n", card_id);
     fflush(stdout);
 
-    utente_mark_done_pending();
+    utente_mark_done_pending(card_id);
     return NULL;
 }

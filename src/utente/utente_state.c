@@ -190,9 +190,9 @@ void utente_mark_working(void) {
     pthread_mutex_unlock(&utente.mutex);
 }
 
-void utente_mark_done_pending(void) {
+void utente_mark_done_pending(int card_id) {
     pthread_mutex_lock(&utente.mutex);
-    if (utente.state == STATE_WORKING) {
+    if (utente.state == STATE_WORKING && utente.card_id == card_id) {
         utente.state = STATE_DONE_PENDING;
     }
     pthread_mutex_unlock(&utente.mutex);
@@ -209,6 +209,30 @@ bool utente_take_done_action(int *card_id) {
         utente.total_users = 0;
         utente.peer_count = 0;
         reset_choices_locked();
+        ready = true;
+    }
+    pthread_mutex_unlock(&utente.mutex);
+
+    return ready;
+}
+
+bool utente_take_manual_done_action(int requested_card_id, int *card_id) {
+    bool ready = false;
+
+    pthread_mutex_lock(&utente.mutex);
+    if ((utente.state == STATE_WORKING || utente.state == STATE_DONE_PENDING)
+            && utente.card_id != -1
+            && (requested_card_id <= 0 || requested_card_id == utente.card_id)) {
+        *card_id = utente.card_id;
+        utente.state = STATE_IDLE;
+        utente.card_id = -1;
+        utente.total_users = 0;
+        utente.peer_count = 0;
+        reset_choices_locked();
+        if (utente.worker_started) {
+            (void)pthread_detach(utente.worker_thread);
+            utente.worker_started = false;
+        }
         ready = true;
     }
     pthread_mutex_unlock(&utente.mutex);

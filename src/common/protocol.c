@@ -76,6 +76,9 @@ ssize_t send_message(int socket_fd, const struct Message *msg) {
     uint32_t header[2];
     size_t payload_length = msg->payload_length;
 
+    if (msg->type == MSG_ERR || msg->type >= NUM_MSG_TYPES) {
+        return -1;
+    }
     if (payload_length > 0 && msg->payload == NULL) {
         return -1;
     }
@@ -106,6 +109,9 @@ ssize_t receive_message(int socket_fd, struct Message *msg) {
     msg->type = ntohl(header[0]);
     msg->payload_length = ntohl(header[1]);
 
+    if (msg->type == MSG_ERR || msg->type >= NUM_MSG_TYPES) {
+        return -1;
+    }
     if (msg->payload_length > capacity || msg->payload_length > MAX_PAYLOAD_SIZE) {
         return -1;
     }

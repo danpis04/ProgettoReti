@@ -10,7 +10,7 @@ static int handle_peer_message(const struct Message *msg) {
         in_port_t sender_port;
         int cost;
 
-        if (msg->payload_length < sizeof(uint32_t) * 3) {
+        if (msg->payload == NULL || msg->payload_length != sizeof(uint32_t) * 3) {
             return -1;
         }
 

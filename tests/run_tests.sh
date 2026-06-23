@@ -23,6 +23,19 @@ cleanup() {
     PIDS=()
 }
 
+drop_pid() {
+    local pid="$1"
+    local remaining=()
+
+    for current_pid in "${PIDS[@]}"; do
+        if [ "$current_pid" != "$pid" ]; then
+            remaining+=("$current_pid")
+        fi
+    done
+
+    PIDS=("${remaining[@]}")
+}
+
 start_lavagna() {
     local log_file="$1"
     "$ROOT/lavagna" < /dev/null > "$log_file" 2>&1 &
@@ -80,6 +93,38 @@ wait_for_count() {
     done
 
     fail "$description"
+}
+
+assert_log_absent() {
+    local description="$1"
+    local pattern="$2"
+    local file="$3"
+
+    if grep -q "$pattern" "$file" 2>/dev/null; then
+        fail "$description"
+    fi
+    pass "$description"
+}
+
+send_raw_protocol_message() {
+    local msg_type="$1"
+    local payload_length="$2"
+    local payload_hex="${3:-}"
+
+    python3 - "$msg_type" "$payload_length" "$payload_hex" <<'PY'
+import socket
+import struct
+import sys
+
+msg_type = int(sys.argv[1])
+payload_length = int(sys.argv[2])
+payload = bytes.fromhex(sys.argv[3])
+
+with socket.create_connection(("127.0.0.1", 5678), timeout=3) as sock:
+    sock.sendall(struct.pack("!II", msg_type, payload_length))
+    if payload:
+        sock.sendall(payload)
+PY
 }
 
 build_project() {
@@ -145,21 +190,66 @@ check_automatic_ports() {
 
 check_user_count_range_1_to_50() {
     local lavagna_log="$WORKDIR/range_lavagna.log"
+    local lavagna_fifo="$WORKDIR/range_lavagna.in"
+    local first_user_fifo="$WORKDIR/range_u5679.in"
 
     cleanup
-    start_lavagna "$lavagna_log"
+    mkfifo "$lavagna_fifo" "$first_user_fifo"
+    exec 9<>"$lavagna_fifo"
+    exec 8<>"$first_user_fifo"
+
+    "$ROOT/lavagna" < "$lavagna_fifo" > "$lavagna_log" 2>&1 &
+    PIDS+=("$!")
+    sleep 1
 
     for i in $(seq 0 49); do
         local port=$((5679 + i))
         local log_file="$WORKDIR/range_u${port}.log"
+        local lavagna_card=$((9000 + i))
+        local utente_card=$((9100 + i))
 
-        start_utente /dev/null "$log_file"
+        if [ "$i" -eq 0 ]; then
+            start_utente "$first_user_fifo" "$log_file"
+        else
+            start_utente /dev/null "$log_file"
+        fi
         wait_for_log "utente automatico su porta $port" 15 "Utente avviato sulla porta $port" "$log_file"
+        wait_for_log "conteggio utenti $((i + 1))/50" 15 "Utenti registrati ($((i + 1)))" "$lavagna_log"
+
+        printf 'SHOW_UTENTI\n' >&9
+        sleep 0.1
+        printf 'SHOW_LAVAGNA\n' >&9
+        sleep 0.2
+        printf 'CREATE_CARD %d DONE Range lavagna %d\n' "$lavagna_card" "$((i + 1))" >&9
+        wait_for_log "CREATE_CARD lavagna conteggio $((i + 1))/50" 10 "Card $lavagna_card creata" "$lavagna_log"
+        printf 'SEND_USER_LIST 5679\n' >&9
+        sleep 0.2
+        printf 'SEND_USER_LIST\n' >&8
+        wait_for_count "SEND_USER_LIST conteggio $((i + 1))/50" 10 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" $(((i + 1) * 2))
+        printf 'CREATE_CARD %d DONE Range utente %d\n' "$utente_card" "$((i + 1))" >&8
+        wait_for_log "CREATE_CARD utente conteggio $((i + 1))/50" 10 "Card $utente_card creata" "$lavagna_log"
     done
 
-    for count in $(seq 1 50); do
-        wait_for_log "conteggio utenti $count/50" 15 "Utenti registrati ($count)" "$lavagna_log"
-    done
+    wait_for_count "SEND_USER_LIST per conteggi 1..50" 20 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" 100
+    wait_for_log "CREATE_CARD lavagna per conteggio 50" 20 'Card 9049 creata' "$lavagna_log"
+    wait_for_log "CREATE_CARD utente per conteggio 50" 20 'Card 9149 creata' "$lavagna_log"
+
+    exec 8>&-
+    exec 9>&-
+    cleanup
+}
+
+check_single_user_behavior() {
+    local lavagna_log="$WORKDIR/single_lavagna.log"
+
+    cleanup
+    start_lavagna "$lavagna_log"
+    start_utente_on_port 5679 /dev/null "$WORKDIR/single_u5679.log"
+    wait_for_log "un solo utente registrato" 10 'Utenti registrati (1)' "$lavagna_log"
+    sleep 4
+
+    assert_log_absent "nessuna offerta con un solo utente" 'AVAILABLE_CARD inviato' "$lavagna_log"
+    assert_log_absent "nessuna presa in carico con un solo utente" 'ACK_CARD ricevuto' "$lavagna_log"
 
     cleanup
 }
@@ -196,6 +286,132 @@ check_user_churn() {
 
     exec 7>&-
     exec 8>&-
+    cleanup
+}
+
+check_manual_card_done_command() {
+    local lavagna_log="$WORKDIR/manual_done_lavagna.log"
+    local u1_fifo="$WORKDIR/manual_done_u1.in"
+    local u2_fifo="$WORKDIR/manual_done_u2.in"
+    local winner
+    local winner_log
+
+    cleanup
+    mkfifo "$u1_fifo" "$u2_fifo"
+    exec 7<>"$u1_fifo"
+    exec 8<>"$u2_fifo"
+
+    start_lavagna "$lavagna_log"
+    start_utente_on_port 5681 "$u1_fifo" "$WORKDIR/manual_done_u5681.log"
+    start_utente_on_port 5684 "$u2_fifo" "$WORKDIR/manual_done_u5684.log"
+
+    wait_for_log "presa in carico per CARD_DONE manuale" 15 'ACK_CARD ricevuto da' "$lavagna_log"
+    winner="$(grep 'ACK_CARD ricevuto da' "$lavagna_log" | tail -1 | sed -E 's/.*da ([0-9]+) per.*/\1/')"
+
+    if [ "$winner" = "5681" ]; then
+        winner_log="$WORKDIR/manual_done_u5681.log"
+        printf 'CARD_DONE 1\n' >&7
+    elif [ "$winner" = "5684" ]; then
+        winner_log="$WORKDIR/manual_done_u5684.log"
+        printf 'CARD_DONE 1\n' >&8
+    else
+        fail "individuazione vincitore per CARD_DONE manuale"
+    fi
+
+    wait_for_log "CARD_DONE manuale inviato da terminale" 5 'Invio CARD_DONE per card 1' "$winner_log"
+    wait_for_log "CARD_DONE manuale ricevuto dalla lavagna" 10 "CARD_DONE ricevuto da $winner per la card 1" "$lavagna_log"
+
+    exec 7>&-
+    exec 8>&-
+    cleanup
+}
+
+check_unexpected_disconnect() {
+    local lavagna_log="$WORKDIR/crash_lavagna.log"
+    local u1_log="$WORKDIR/crash_u5681.log"
+    local u2_log="$WORKDIR/crash_u5684.log"
+    local u3_log="$WORKDIR/crash_u5687.log"
+    local u1_pid
+    local u2_pid
+    local victim_pid
+    local winner
+
+    cleanup
+    start_lavagna "$lavagna_log"
+
+    "$ROOT/utente" 5681 < /dev/null > "$u1_log" 2>&1 &
+    u1_pid="$!"
+    PIDS+=("$u1_pid")
+    "$ROOT/utente" 5684 < /dev/null > "$u2_log" 2>&1 &
+    u2_pid="$!"
+    PIDS+=("$u2_pid")
+
+    wait_for_log "offerta prima card prima del crash" 15 'AVAILABLE_CARD inviato per la card 1' "$lavagna_log"
+    wait_for_log "presa in carico prima del crash" 15 'ACK_CARD ricevuto da' "$lavagna_log"
+
+    winner="$(grep 'ACK_CARD ricevuto da' "$lavagna_log" | tail -1 | sed -E 's/.*da ([0-9]+) per.*/\1/')"
+    if [ "$winner" = "5681" ]; then
+        victim_pid="$u1_pid"
+    elif [ "$winner" = "5684" ]; then
+        victim_pid="$u2_pid"
+    else
+        fail "individuazione utente attivo prima del crash"
+    fi
+
+    kill -KILL "$victim_pid" 2>/dev/null || fail "terminazione inattesa utente attivo"
+    wait "$victim_pid" 2>/dev/null || true
+    drop_pid "$victim_pid"
+    wait_for_log "rilevata chiusura inattesa utente attivo" 15 "Connessione chiusa dall'utente $winner" "$lavagna_log"
+    wait_for_log "utente attivo rimosso dopo crash" 15 "Utente $winner rimosso dalla lavagna" "$lavagna_log"
+    wait_for_log "card tornata To Do dopo crash" 15 'Card ID: 1  User: 0' "$lavagna_log"
+
+    start_utente_on_port 5687 /dev/null "$u3_log"
+    wait_for_count "card riassegnata dopo crash" 20 'AVAILABLE_CARD inviato per la card 1' "$lavagna_log" 2
+    wait_for_count "nuovo ACK dopo crash" 20 'ACK_CARD ricevuto da' "$lavagna_log" 2
+
+    cleanup
+}
+
+check_payload_validation() {
+    local lavagna_log="$WORKDIR/payload_lavagna.log"
+    local valid_log="$WORKDIR/payload_valid_u5679.log"
+    local valid2_log="$WORKDIR/payload_valid_u5680.log"
+
+    cleanup
+    start_lavagna "$lavagna_log"
+
+    send_raw_protocol_message 1 8 "0000162f00000000" || fail "invio HELLO malformato"
+    sleep 1
+    assert_log_absent "HELLO con payload troppo lungo rifiutato" 'HELLO ricevuto dall'\''utente 5679' "$lavagna_log"
+
+    send_raw_protocol_message 3 1025 "" || fail "invio payload oltre limite"
+    sleep 1
+    send_raw_protocol_message 99 0 "" || fail "invio tipo messaggio non valido"
+    sleep 1
+
+    if ! python3 - <<'PY'
+import socket
+import struct
+import time
+
+with socket.create_connection(("127.0.0.1", 5678), timeout=3) as sock:
+    sock.sendall(struct.pack("!II", 1, 4) + struct.pack("!I", 5681))
+    time.sleep(0.2)
+    payload = b"100 TODO card senza terminatore"
+    sock.sendall(struct.pack("!II", 3, len(payload)) + payload)
+    time.sleep(0.2)
+PY
+    then
+        fail "invio CREATE_CARD senza terminatore"
+    fi
+    sleep 1
+    assert_log_absent "CREATE_CARD senza terminatore rifiutata" 'Card 100 creata' "$lavagna_log"
+
+    start_utente_on_port 5679 /dev/null "$valid_log"
+    wait_for_log "lavagna attiva dopo payload malformati" 10 'HELLO ricevuto dall'\''utente 5679' "$lavagna_log"
+    start_utente_on_port 5680 /dev/null "$valid2_log"
+    wait_for_log "secondo utente valido dopo payload malformati" 10 'HELLO ricevuto dall'\''utente 5680' "$lavagna_log"
+
     cleanup
 }
 
@@ -309,8 +525,12 @@ main() {
     check_explicit_port
     check_duplicate_explicit_port
     check_automatic_ports
+    check_single_user_behavior
+    check_payload_validation
     check_user_count_range_1_to_50
     check_user_churn
+    check_manual_card_done_command
+    check_unexpected_disconnect
     check_full_even_flow
     check_terminal_commands
     check_lavagna_commands_and_ping

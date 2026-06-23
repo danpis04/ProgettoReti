@@ -15,7 +15,7 @@ static void signal_handler(int signum) {
 static int read_card_id_payload(const struct Message *msg, int *card_id) {
     size_t offset = 0;
 
-    if (msg->payload_length < sizeof(uint32_t) || msg->payload == NULL) {
+    if (msg->payload == NULL || msg->payload_length != sizeof(uint32_t)) {
         return -1;
     }
 
@@ -29,7 +29,7 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
     switch (msg->type) {
         case MSG_HELLO: {
             size_t offset = 0;
-            if (msg->payload_length < sizeof(uint32_t)) {
+            if (msg->payload == NULL || msg->payload_length != sizeof(uint32_t)) {
                 return -1;
             }
 
@@ -50,7 +50,8 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
             int created_id;
             fprintf(stdout, "CREATE_CARD ricevuto dall'utente %u\n", (unsigned)user_port);
 
-            if (msg->payload_length == 0) {
+            if (msg->payload_length == 0 || msg->payload == NULL
+                    || ((const char *)msg->payload)[msg->payload_length - 1] != '\0') {
                 fprintf(stderr, "CREATE_CARD richiede argomenti\n");
                 break;
             }

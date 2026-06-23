@@ -25,6 +25,8 @@ static int parse_available_card(const struct Message *msg, int *card_id, int *to
                                 size_t text_size) {
     size_t offset = 0;
     uint32_t raw_peer_count;
+    size_t peer_bytes;
+    size_t text_length;
 
     if (msg->payload == NULL || msg->payload_length < sizeof(uint32_t) * 3) {
         return -1;
@@ -38,12 +40,18 @@ static int parse_available_card(const struct Message *msg, int *card_id, int *to
     }
     *peer_count = (int)raw_peer_count;
 
-    if (msg->payload_length < offset + (size_t)(*peer_count) * sizeof(uint32_t) + 1) {
+    peer_bytes = (size_t)(*peer_count) * sizeof(uint32_t);
+    if (msg->payload_length < offset + peer_bytes + 1) {
         return -1;
     }
 
     for (int i = 0; i < *peer_count; i++) {
         peers[i] = (in_port_t)read_u32((const char *)msg->payload, &offset);
+    }
+
+    text_length = msg->payload_length - offset;
+    if (text_length == 0 || ((const char *)msg->payload)[msg->payload_length - 1] != '\0') {
+        return -1;
     }
 
     snprintf(text, text_size, "%s", (const char *)msg->payload + offset);
@@ -65,6 +73,32 @@ static int handle_stdin_message(int server_fd, const struct Message *msg) {
                 return -1;
             }
             break;
+
+        case MSG_CARD_DONE: {
+            int requested_card_id = -1;
+            int card_id;
+
+            if (msg->payload_length > 0) {
+                char *endptr;
+                long value = strtol((const char *)msg->payload, &endptr, 10);
+                if (*endptr != '\0' || value <= 0) {
+                    fprintf(stderr, "Uso: CARD_DONE [id]\n");
+                    break;
+                }
+                requested_card_id = (int)value;
+            }
+
+            if (!utente_take_manual_done_action(requested_card_id, &card_id)) {
+                fprintf(stderr, "CARD_DONE non disponibile per l'utente corrente\n");
+                break;
+            }
+            fprintf(stdout, "Invio CARD_DONE per card %d\n", card_id);
+            fflush(stdout);
+            if (send_server_card_done(server_fd, card_id) < 0) {
+                return -1;
+            }
+            break;
+        }
 
         case MSG_QUIT:
             (void)send_message(server_fd, msg);
@@ -130,11 +164,25 @@ static int handle_server_message(int server_fd, const struct Message *msg) {
             size_t offset = 0;
             int total;
             int count;
-            if (msg->payload_length < sizeof(uint32_t) * 2) {
+            uint32_t raw_count;
+            size_t expected_length;
+
+            if (msg->payload == NULL || msg->payload_length < sizeof(uint32_t) * 2) {
                 return -1;
             }
+
             total = (int)read_u32((const char *)msg->payload, &offset);
-            count = (int)read_u32((const char *)msg->payload, &offset);
+            raw_count = read_u32((const char *)msg->payload, &offset);
+            if (raw_count > MAX_USERS) {
+                return -1;
+            }
+
+            expected_length = sizeof(uint32_t) * 2 + (size_t)raw_count * sizeof(uint32_t);
+            if (msg->payload_length != expected_length) {
+                return -1;
+            }
+
+            count = (int)raw_count;
             fprintf(stdout, "Lista utenti ricevuta: totale %d, altri %d\n", total, count);
             for (int i = 0; i < count; i++) {
                 in_port_t port = (in_port_t)read_u32((const char *)msg->payload, &offset);
