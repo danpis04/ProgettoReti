@@ -205,7 +205,6 @@ check_user_count_range_1_to_50() {
     for i in $(seq 0 49); do
         local port=$((5679 + i))
         local log_file="$WORKDIR/range_u${port}.log"
-        local lavagna_card=$((9000 + i))
         local utente_card=$((9100 + i))
 
         if [ "$i" -eq 0 ]; then
@@ -220,18 +219,14 @@ check_user_count_range_1_to_50() {
         sleep 0.1
         printf 'SHOW_LAVAGNA\n' >&9
         sleep 0.2
-        printf 'CREATE_CARD %d DONE Range lavagna %d\n' "$lavagna_card" "$((i + 1))" >&9
-        wait_for_log "CREATE_CARD lavagna conteggio $((i + 1))/50" 10 "Card $lavagna_card creata" "$lavagna_log"
         printf 'SEND_USER_LIST 5679\n' >&9
         sleep 0.2
-        printf 'SEND_USER_LIST\n' >&8
-        wait_for_count "SEND_USER_LIST conteggio $((i + 1))/50" 10 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" $(((i + 1) * 2))
+        wait_for_count "SEND_USER_LIST conteggio $((i + 1))/50" 10 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" $((i + 1))
         printf 'CREATE_CARD %d DONE Range utente %d\n' "$utente_card" "$((i + 1))" >&8
         wait_for_log "CREATE_CARD utente conteggio $((i + 1))/50" 10 "Card $utente_card creata" "$lavagna_log"
     done
 
-    wait_for_count "SEND_USER_LIST per conteggi 1..50" 20 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" 100
-    wait_for_log "CREATE_CARD lavagna per conteggio 50" 20 'Card 9049 creata' "$lavagna_log"
+    wait_for_count "SEND_USER_LIST per conteggi 1..50" 20 'Lista utenti ricevuta' "$WORKDIR/range_u5679.log" 50
     wait_for_log "CREATE_CARD utente per conteggio 50" 20 'Card 9149 creata' "$lavagna_log"
 
     exec 8>&-
@@ -270,10 +265,12 @@ check_manual_ack_and_random_seed() {
 import socket
 import struct
 import sys
+import threading
 import time
 
 MSG_HELLO = 1
 MSG_AVAILABLE_CARD = 10
+MSG_CHOOSE_USER = 11
 MSG_ACK_CARD = 12
 
 log_path = sys.argv[1]
@@ -302,11 +299,33 @@ def recv_msg(conn):
         return None, None
     return msg_type, payload
 
+def peer_server():
+    deadline = time.time() + 10
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("127.0.0.1", 5682))
+        server.listen(8)
+        server.settimeout(0.2)
+        while time.time() < deadline:
+            try:
+                conn, _ = server.accept()
+            except socket.timeout:
+                continue
+            with conn:
+                msg_type, payload = recv_msg(conn)
+                if msg_type == MSG_CHOOSE_USER and len(payload) == 12:
+                    card_id, port, cost = struct.unpack("!III", payload)
+                    log(f"CHOOSE_USER {card_id} {port} {cost}")
+                    if cost == 4242:
+                        return
+
 def send_available(conn, card_id):
     text = f"card manuale {card_id}".encode("ascii") + b"\0"
-    payload = struct.pack("!III", card_id, 2, 0) + text
+    payload = struct.pack("!IIII", card_id, 2, 1, 5682) + text
     conn.sendall(struct.pack("!II", MSG_AVAILABLE_CARD, len(payload)) + payload)
     log(f"AVAILABLE_CARD {card_id}")
+
+threading.Thread(target=peer_server, daemon=True).start()
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -358,6 +377,9 @@ PY
     printf 'HELLO\n' >&7
     wait_for_log "HELLO manuale inviato da terminale" 5 'HELLO_MANUALE 5681' "$fake_log"
 
+    printf 'CHOOSE_USER 4242\n' >&7
+    wait_for_log "CHOOSE_USER manuale inviato da terminale" 10 'CHOOSE_USER 124 5681 4242' "$fake_log"
+
     printf 'ACK_CARD 124\n' >&7
     wait_for_log "ACK_CARD manuale inviato da terminale" 5 'Invio ACK_CARD per card 124' "$user_log"
     wait_for_log "ACK_CARD manuale ricevuto dalla lavagna finta" 10 'ACK_CARD 124' "$fake_log"
@@ -386,9 +408,9 @@ check_user_churn() {
     wait_for_log "sei utenti registrati" 15 'Utenti registrati (6)' "$lavagna_log"
 
     printf 'QUIT\n' >&7
+    wait_for_log "uscita primo utente churn" 20 "Utente 5685 rimosso dalla lavagna" "$lavagna_log"
     printf 'QUIT\n' >&8
-    wait_for_log "uscita primo utente churn" 15 "QUIT ricevuto dall'utente 5685" "$lavagna_log"
-    wait_for_log "uscita secondo utente churn" 15 "QUIT ricevuto dall'utente 5686" "$lavagna_log"
+    wait_for_log "uscita secondo utente churn" 20 "Utente 5686 rimosso dalla lavagna" "$lavagna_log"
     wait_for_log "quattro utenti dopo uscite" 15 'Utenti registrati (4)' "$lavagna_log"
 
     start_utente_on_port 5687 /dev/null "$WORKDIR/churn_new1.log"
@@ -573,7 +595,7 @@ check_terminal_commands() {
     wait_for_count "SHOW_LAVAGNA da utente" 10 'Lavagna 1' "$lavagna_log" 2
 
     printf 'SEND_USER_LIST\n' >&7
-    wait_for_log "SEND_USER_LIST ricevuta dall'utente" 10 'Lista utenti ricevuta' "$WORKDIR/commands_u5679.log"
+    wait_for_log "SEND_USER_LIST rifiutato sull'utente" 10 'Comando non valido per utente' "$WORKDIR/commands_u5679.log"
 
     printf 'CREATE_CARD 77 TODO Card creata da comando terminale\n' >&7
     wait_for_log "CREATE_CARD da utente accettata" 10 'Card 77 creata' "$lavagna_log"
@@ -621,23 +643,20 @@ check_lavagna_commands_and_ping() {
     printf 'SHOW_LAVAGNA\n' >&9
     wait_for_log "SHOW_LAVAGNA da lavagna" 10 'Lavagna 1' "$lavagna_log"
 
-    printf 'CREATE_CARD 88 TODO Card creata dalla lavagna\n' >&9
-    wait_for_log "CREATE_CARD da lavagna" 10 'Card 88 creata' "$lavagna_log"
+    printf 'AVAILABLE_CARD\n' >&9
+    wait_for_log "AVAILABLE_CARD da lavagna" 10 'AVAILABLE_CARD richiesto da terminale' "$lavagna_log"
 
-    printf 'MOVE_CARD 88 TODO\n' >&9
-    wait_for_log "MOVE_CARD da lavagna" 10 'Card ID: 88' "$lavagna_log"
+    printf 'CREATE_CARD 88 TODO Card creata dalla lavagna\n' >&9
+    wait_for_log "CREATE_CARD rifiutato sulla lavagna" 10 'Comando non valido per la lavagna' "$lavagna_log"
+
+    printf 'MOVE_CARD 2 TODO\n' >&9
+    wait_for_log "MOVE_CARD da lavagna" 10 'Card ID: 2' "$lavagna_log"
 
     printf 'SEND_USER_LIST 5684\n' >&9
     wait_for_log "SEND_USER_LIST da lavagna" 10 'Lista utenti ricevuta' "$WORKDIR/cmd_u5684.log"
 
     printf 'QUIT\n' >&9
-    sleep 1
-    if kill -0 "$lavagna_pid" 2>/dev/null; then
-        fail "QUIT da lavagna"
-    fi
-    wait "$lavagna_pid" 2>/dev/null || true
-    drop_pid "$lavagna_pid"
-    pass "QUIT da lavagna"
+    wait_for_count "QUIT rifiutato sulla lavagna" 10 'Comando non valido per la lavagna' "$lavagna_log" 2
 
     exec 7>&-
     exec 8>&-

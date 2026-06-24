@@ -49,4 +49,4 @@ Esecuzione di quattro utenti:
 
 In alternativa e' possibile lanciare piu' istanze con `./utente`; in quel caso ogni processo seleziona la prima porta libera a partire da `5679`.
 
-Comandi utili da terminale sulla lavagna: `SHOW_LAVAGNA`, `SHOW_UTENTI`, `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `PING_USER <porta>`, `SEND_USER_LIST <porta>` e `QUIT`. Dagli utenti si possono inviare `CREATE_CARD`, `SHOW_LAVAGNA`, `SEND_USER_LIST`, `HELLO`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`.
+Comandi utili da terminale sulla lavagna: `SHOW_LAVAGNA`, `SHOW_UTENTI`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `PING_USER <porta>`, `SEND_USER_LIST <porta>` e `AVAILABLE_CARD`. Dagli utenti si possono inviare `CREATE_CARD`, `SHOW_LAVAGNA`, `HELLO`, `CHOOSE_USER [costo]`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`.

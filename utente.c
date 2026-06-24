@@ -86,11 +86,46 @@ static int handle_stdin_message(int server_fd, const struct Message *msg) {
 
         case MSG_CREATE_CARD:
         case MSG_SHOW_LAVAGNA:
-        case MSG_SEND_USER_LIST:
             if (send_message(server_fd, msg) < 0) {
                 return -1;
             }
             break;
+
+        case MSG_CHOOSE_USER: {
+            char *endptr;
+            long value;
+            int cost;
+            int card_id = utente_get_card_id();
+            in_port_t peers[MAX_USERS];
+            int peer_count;
+
+            if (card_id <= 0) {
+                fprintf(stderr, "CHOOSE_USER non disponibile per l'utente corrente\n");
+                break;
+            }
+
+            if (msg->payload_length == 0) {
+                cost = utente_get_own_cost();
+            } else {
+                value = strtol((const char *)msg->payload, &endptr, 10);
+                if (*endptr != '\0') {
+                    fprintf(stderr, "Uso: CHOOSE_USER [costo]\n");
+                    break;
+                }
+                cost = (int)value;
+            }
+
+            peer_count = utente_copy_peers(peers, MAX_USERS);
+            if (peer_count <= 0) {
+                fprintf(stderr, "CHOOSE_USER non disponibile per l'utente corrente\n");
+                break;
+            }
+
+            fprintf(stdout, "Invio CHOOSE_USER per card %d con costo %d\n", card_id, cost);
+            fflush(stdout);
+            (void)p2p_broadcast_choose(card_id, cost, peers, peer_count);
+            break;
+        }
 
         case MSG_ACK_CARD: {
             int requested_card_id;

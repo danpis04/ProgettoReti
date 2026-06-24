@@ -54,11 +54,10 @@ Sulla lavagna:
 ```text
 SHOW_LAVAGNA
 SHOW_UTENTI
-CREATE_CARD <id> <TODO|DOING|DONE> <descrizione>
 MOVE_CARD <id> <TODO|DOING|DONE> [porta]
 SEND_USER_LIST <porta>
 PING_USER <porta>
-QUIT
+AVAILABLE_CARD
 ```
 
 Sugli utenti:
@@ -66,12 +65,12 @@ Sugli utenti:
 ```text
 CREATE_CARD <id> <TODO|DOING|DONE> <descrizione>
 SHOW_LAVAGNA
-SEND_USER_LIST
 HELLO
+CHOOSE_USER [costo]
 ACK_CARD [id]
 CARD_DONE [id]
 PONG_LAVAGNA
 QUIT
 ```
 
-Con almeno due utenti registrati, la lavagna invia `AVAILABLE_CARD`; gli utenti si scambiano `CHOOSE_USER`, il costo minore vince la card e lo comunica con `ACK_CARD`. Al completamento viene inviato `CARD_DONE`. I comandi `ACK_CARD` e `CARD_DONE` da terminale sono disponibili quando l'utente ha una card corrente.
+Con almeno due utenti registrati, la lavagna invia `AVAILABLE_CARD`; gli utenti si scambiano `CHOOSE_USER`, il costo minore vince la card e lo comunica con `ACK_CARD`. Al completamento viene inviato `CARD_DONE`. I comandi `CHOOSE_USER`, `ACK_CARD` e `CARD_DONE` da terminale sono disponibili quando l'utente ha una card corrente.

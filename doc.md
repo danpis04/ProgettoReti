@@ -70,6 +70,6 @@ make clean
 
 ## Comandi da terminale
 
-La lavagna accetta `SHOW_LAVAGNA`, `SHOW_UTENTI`, `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `SEND_USER_LIST <porta>`, `PING_USER <porta>` e `QUIT`.
+La lavagna accetta `SHOW_LAVAGNA`, `SHOW_UTENTI`, `MOVE_CARD <id> <TODO|DOING|DONE> [porta]`, `SEND_USER_LIST <porta>`, `PING_USER <porta>` e `AVAILABLE_CARD`.
 
-Ogni utente accetta `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `SHOW_LAVAGNA`, `SEND_USER_LIST`, `HELLO`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`. `ACK_CARD` e `CARD_DONE` da terminale usano la card corrente dell'utente; l'id opzionale serve a rifiutare invii accidentali su una card diversa.
+Ogni utente accetta `CREATE_CARD <id> <TODO|DOING|DONE> <testo>`, `SHOW_LAVAGNA`, `HELLO`, `CHOOSE_USER [costo]`, `ACK_CARD [id]`, `CARD_DONE [id]`, `PONG_LAVAGNA` e `QUIT`. `CHOOSE_USER`, `ACK_CARD` e `CARD_DONE` da terminale usano la card corrente dell'utente; i parametri opzionali servono a inviare un costo esplicito o a rifiutare invii accidentali su una card diversa.

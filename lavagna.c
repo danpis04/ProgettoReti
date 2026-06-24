@@ -173,23 +173,6 @@ static int handle_stdin_message(const struct Message *msg) {
             database_print_users();
             break;
 
-        case MSG_CREATE_CARD: {
-            int created_id;
-            if (msg->payload_length == 0) {
-                fprintf(stderr, "Uso: CREATE_CARD <id> <TODO|DOING|DONE> <testo>\n");
-                break;
-            }
-            created_id = create_card_from_payload((const char *)msg->payload);
-            if (created_id < 0) {
-                fprintf(stderr, "Uso: CREATE_CARD <id> <TODO|DOING|DONE> <testo>\n");
-                break;
-            }
-            fprintf(stdout, "Card %d creata\n", created_id);
-            database_print_cards();
-            (void)send_available_card(lavagna_server);
-            break;
-        }
-
         case MSG_MOVE_CARD:
             if (msg->payload_length == 0) {
                 fprintf(stderr, "Uso: MOVE_CARD <id> <TODO|DOING|DONE> [porta]\n");
@@ -244,8 +227,13 @@ static int handle_stdin_message(const struct Message *msg) {
             break;
         }
 
-        case MSG_QUIT:
-            active = 0;
+        case MSG_AVAILABLE_CARD:
+            if (msg->payload_length != 0) {
+                fprintf(stderr, "Uso: AVAILABLE_CARD\n");
+                break;
+            }
+            fprintf(stdout, "AVAILABLE_CARD richiesto da terminale\n");
+            (void)send_available_card(lavagna_server);
             break;
 
         default:
