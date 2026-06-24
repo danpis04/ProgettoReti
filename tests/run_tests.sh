@@ -249,6 +249,28 @@ check_single_user_behavior() {
     cleanup
 }
 
+check_single_user_create_card_no_offer() {
+    local lavagna_log="$WORKDIR/single_create_lavagna.log"
+    local user_fifo="$WORKDIR/single_create_user.in"
+
+    cleanup
+    mkfifo "$user_fifo"
+    exec 7<>"$user_fifo"
+
+    start_lavagna "$lavagna_log"
+    start_utente_on_port 5679 "$user_fifo" "$WORKDIR/single_create_u5679.log"
+    wait_for_log "un solo utente registrato per CREATE_CARD" 10 'Utenti registrati (1)' "$lavagna_log"
+
+    printf 'CREATE_CARD 7777 TODO Card con un solo utente\n' >&7
+    wait_for_log "CREATE_CARD con un solo utente" 10 'Card 7777 creata' "$lavagna_log"
+    sleep 2
+
+    assert_log_absent "nessuna offerta dopo CREATE_CARD con un solo utente" 'AVAILABLE_CARD inviato' "$lavagna_log"
+
+    exec 7>&-
+    cleanup
+}
+
 check_manual_ack_and_random_seed() {
     local fake_log="$WORKDIR/manual_ack_fake_lavagna.log"
     local user_log="$WORKDIR/manual_ack_user.log"
@@ -321,7 +343,7 @@ def peer_server():
 
 def send_available(conn, card_id):
     text = f"card manuale {card_id}".encode("ascii") + b"\0"
-    payload = struct.pack("!IIII", card_id, 2, 1, 5682) + text
+    payload = struct.pack("!III", card_id, 2, 5682) + text
     conn.sendall(struct.pack("!II", MSG_AVAILABLE_CARD, len(payload)) + payload)
     log(f"AVAILABLE_CARD {card_id}")
 
@@ -674,6 +696,7 @@ main() {
     check_duplicate_explicit_port
     check_automatic_ports
     check_single_user_behavior
+    check_single_user_create_card_no_offer
     check_manual_ack_and_random_seed
     check_payload_validation
     check_user_count_range_1_to_50

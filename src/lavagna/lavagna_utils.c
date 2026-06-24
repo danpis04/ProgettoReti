@@ -85,7 +85,6 @@ static int fill_available_payload(char *buffer, int card_id, in_port_t recipient
 
     write_u32(buffer, &offset, (uint32_t)card_id);
     write_u32(buffer, &offset, (uint32_t)database_get_num_users());
-    write_u32(buffer, &offset, (uint32_t)peer_count);
 
     for (int i = 0; i < peer_count; i++) {
         write_u32(buffer, &offset, (uint32_t)peers[i]);

@@ -86,23 +86,28 @@ static void sort_ports(in_port_t *ports, int count) {
 
 void database_init(void) {
     static const char *initial_cards[] = {
-        "Analizzare i requisiti della lavagna kanban",
-        "Definire il protocollo dei messaggi",
-        "Registrare gli utenti con HELLO",
-        "Inviare le card disponibili agli utenti",
-        "Scambiare i costi tra utenti",
+        "Preparare la struttura della lavagna kanban",
+        "Definire le colonne To Do, Doing e Done",
+        "Stabilire il formato binario dei messaggi",
+        "Registrare gli utenti tramite HELLO",
+        "Mantenere aggiornata la lista degli utenti attivi",
+        "Inviare AVAILABLE_CARD quando ci sono almeno due utenti",
+        "Condividere la lista dei peer con SEND_USER_LIST",
+        "Scambiare i costi di esecuzione con CHOOSE_USER",
+        "Assegnare la card all'utente con costo minore",
         "Spostare la card in Doing dopo ACK_CARD",
+        "Simulare l'esecuzione dell'attivita assegnata",
         "Completare la card con CARD_DONE",
-        "Gestire QUIT e riassegnazione",
-        "Rispondere a PING_USER con PONG_LAVAGNA",
-        "Mostrare lo stato aggiornato della lavagna"
+        "Gestire QUIT e rimettere la card in To Do",
+        "Controllare gli utenti attivi con PING_USER",
+        "Aggiornare la stampa della lavagna dopo ogni modifica"
     };
 
     memset(&database, 0, sizeof(database));
     database.lavagna_id = 1;
     database.offered_card_id = -1;
 
-    for (int i = 0; i < 10; i++) {
+    for (size_t i = 0; i < sizeof(initial_cards) / sizeof(initial_cards[0]); i++) {
         (void)database_create_card(0, CARD_STATUS_TODO, initial_cards[i]);
     }
 }

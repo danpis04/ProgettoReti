@@ -24,21 +24,19 @@ static int parse_available_card(const struct Message *msg, int *card_id, int *to
                                 in_port_t *peers, int *peer_count, char *text,
                                 size_t text_size) {
     size_t offset = 0;
-    uint32_t raw_peer_count;
     size_t peer_bytes;
     size_t text_length;
 
-    if (msg->payload == NULL || msg->payload_length < sizeof(uint32_t) * 3) {
+    if (msg->payload == NULL || msg->payload_length < sizeof(uint32_t) * 2) {
         return -1;
     }
 
     *card_id = (int)read_u32((const char *)msg->payload, &offset);
     *total_users = (int)read_u32((const char *)msg->payload, &offset);
-    raw_peer_count = read_u32((const char *)msg->payload, &offset);
-    if (raw_peer_count > MAX_USERS) {
+    if (*total_users < 2 || *total_users > MAX_USERS) {
         return -1;
     }
-    *peer_count = (int)raw_peer_count;
+    *peer_count = *total_users - 1;
 
     peer_bytes = (size_t)(*peer_count) * sizeof(uint32_t);
     if (msg->payload_length < offset + peer_bytes + 1) {
