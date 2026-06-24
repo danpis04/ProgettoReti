@@ -1,7 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-/* Header condiviso: raccoglie solo librerie standard/POSIX gia' usate nel riferimento. */
+/* Header condiviso per librerie standard/POSIX usate dai moduli del progetto. */
 
 #include <stdio.h>
 #include <stdlib.h>

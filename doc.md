@@ -12,7 +12,7 @@ Le connessioni multiple della lavagna sono gestite con `select()`. L'utente usa 
 
 ## Struttura logica del programma
 
-Il codice e' organizzato in moduli vicini alla struttura del riferimento: `server` e `client` astraggono socket e multiplexing, `protocol` serializza e deserializza i messaggi, `database` mantiene utenti e card della lavagna, `lavagna_utils` contiene le operazioni applicative della lavagna, mentre `utente_state`, `p2p_utils` e i thread dell'utente gestiscono elezione e lavoro.
+Il codice e' organizzato in moduli separati per responsabilita': `server` e `client` astraggono socket e multiplexing, `protocol` serializza e deserializza i messaggi, `database` mantiene utenti e card della lavagna, `lavagna_utils` contiene le operazioni applicative della lavagna, mentre `utente_state`, `p2p_utils` e i thread dell'utente gestiscono elezione e lavoro.
 
 La lavagna inizializza almeno 10 card in `To Do` e stampa lo stato all'avvio. Quando riceve `HELLO`, registra la porta dell'utente e aggiorna il contatore. Appena sono presenti almeno due utenti e una card disponibile, invia `AVAILABLE_CARD` a tutti gli utenti registrati, includendo la prima card in `To Do`, il numero totale di utenti e la lista dei peer escluso il destinatario.
 
