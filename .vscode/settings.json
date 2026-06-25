@@ -1,0 +1,41 @@
+{
+  "latex-workshop.latex.recipe.default": "first",
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "pdflatex.exe twice (MiKTeX)",
+      "tools": [
+        "pdflatex.exe (MiKTeX)",
+        "pdflatex.exe (MiKTeX)"
+      ]
+    },
+    {
+      "name": "latexmk.exe (MiKTeX)",
+      "tools": [
+        "latexmk.exe (MiKTeX)"
+      ]
+    }
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "pdflatex.exe (MiKTeX)",
+      "command": "/mnt/c/Users/danie/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOCFILE_EXT%"
+      ]
+    },
+    {
+      "name": "latexmk.exe (MiKTeX)",
+      "command": "/mnt/c/Users/danie/AppData/Local/Programs/MiKTeX/miktex/bin/x64/latexmk.exe",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-pdf",
+        "%DOCFILE_EXT%"
+      ]
+    }
+  ]
+}

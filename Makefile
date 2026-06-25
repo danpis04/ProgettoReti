@@ -1,6 +1,6 @@
 CC      := gcc
-CFLAGS  := -Wall -Wextra -Wpedantic -std=c11
-CPPFLAGS := -Iinclude
+CFLAGS  := -Wall -Wextra -Wpedantic 
+
 LDLIBS  := -pthread
 
 COMMON_SRC := src/common/server.c src/common/protocol.c src/common/client.c

@@ -581,7 +581,7 @@ check_full_even_flow() {
     start_utente /dev/null "$WORKDIR/full_u5681.log"
     start_utente /dev/null "$WORKDIR/full_u5682.log"
 
-    wait_for_count "10 card completate" 70 'CARD_DONE ricevuto' "$lavagna_log" 10
+    wait_for_count "10 card completate" 360 'CARD_DONE ricevuto' "$lavagna_log" 10
     wait_for_count "10 card prese in carico" 5 'ACK_CARD ricevuto' "$lavagna_log" 10
     wait_for_count "10 offerte AVAILABLE_CARD" 5 'AVAILABLE_CARD inviato' "$lavagna_log" 10
     wait_for_log "colonna Done contiene card 10" 5 'Card ID: 10' "$lavagna_log"
@@ -611,7 +611,7 @@ check_terminal_commands() {
     fi
 
     printf 'PONG_LAVAGNA\n' >&7
-    wait_for_log "PONG_LAVAGNA da utente" 10 "PONG_LAVAGNA ricevuto dall'utente $u1_port" "$lavagna_log"
+    wait_for_log "PONG_LAVAGNA da utente" 30 "PONG_LAVAGNA ricevuto dall'utente $u1_port" "$lavagna_log"
 
     printf 'SHOW_LAVAGNA\n' >&7
     wait_for_count "SHOW_LAVAGNA da utente" 10 'Lavagna 1' "$lavagna_log" 2
@@ -660,25 +660,25 @@ check_lavagna_commands_and_ping() {
     wait_for_log "ping/pong utente attivo" 15 "PONG_LAVAGNA ricevuto dall'utente $winner" "$lavagna_log"
 
     printf 'SHOW_UTENTI\n' >&9
-    wait_for_log "SHOW_UTENTI da lavagna" 10 'Utenti registrati' "$lavagna_log"
+    wait_for_log "SHOW_UTENTI da lavagna" 30 'Utenti registrati' "$lavagna_log"
 
     printf 'SHOW_LAVAGNA\n' >&9
-    wait_for_log "SHOW_LAVAGNA da lavagna" 10 'Lavagna 1' "$lavagna_log"
+    wait_for_log "SHOW_LAVAGNA da lavagna" 30 'Lavagna 1' "$lavagna_log"
 
     printf 'AVAILABLE_CARD\n' >&9
-    wait_for_log "AVAILABLE_CARD da lavagna" 10 'AVAILABLE_CARD richiesto da terminale' "$lavagna_log"
+    wait_for_log "AVAILABLE_CARD da lavagna" 30 'AVAILABLE_CARD richiesto da terminale' "$lavagna_log"
 
     printf 'CREATE_CARD 88 TODO Card creata dalla lavagna\n' >&9
-    wait_for_log "CREATE_CARD rifiutato sulla lavagna" 10 'Comando non valido per la lavagna' "$lavagna_log"
+    wait_for_log "CREATE_CARD rifiutato sulla lavagna" 30 'Comando non valido per la lavagna' "$lavagna_log"
 
     printf 'MOVE_CARD 2 TODO\n' >&9
-    wait_for_log "MOVE_CARD da lavagna" 10 'Card ID: 2' "$lavagna_log"
+    wait_for_log "MOVE_CARD da lavagna" 30 'Card ID: 2' "$lavagna_log"
 
     printf 'SEND_USER_LIST 5684\n' >&9
-    wait_for_log "SEND_USER_LIST da lavagna" 10 'Lista utenti ricevuta' "$WORKDIR/cmd_u5684.log"
+    wait_for_log "SEND_USER_LIST da lavagna" 30 'Lista utenti ricevuta' "$WORKDIR/cmd_u5684.log"
 
     printf 'QUIT\n' >&9
-    wait_for_count "QUIT rifiutato sulla lavagna" 10 'Comando non valido per la lavagna' "$lavagna_log" 2
+    wait_for_count "QUIT rifiutato sulla lavagna" 30 'Comando non valido per la lavagna' "$lavagna_log" 2
 
     exec 7>&-
     exec 8>&-

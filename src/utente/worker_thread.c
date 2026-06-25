@@ -5,7 +5,7 @@ void *worker_thread_function(void *arg) {
     (void)arg;
 
     int card_id = utente_get_card_id();
-    int sleep_seconds = 1 + (utente_get_port() % 3);
+    int sleep_seconds = rand() % 5 * 5 + 5;
 
     fprintf(stdout, "Lavoro avviato sulla card %d per %d secondi\n", card_id, sleep_seconds);
     fflush(stdout);
