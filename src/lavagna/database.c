@@ -86,21 +86,21 @@ static void sort_ports(in_port_t *ports, int count) {
 
 void database_init(void) {
     static const char *initial_cards[] = {
-        "Preparare la struttura della lavagna kanban",
-        "Definire le colonne To Do, Doing e Done",
-        "Stabilire il formato binario dei messaggi",
-        "Registrare gli utenti tramite HELLO",
-        "Mantenere aggiornata la lista degli utenti attivi",
-        "Inviare AVAILABLE_CARD quando ci sono almeno due utenti",
-        "Condividere la lista dei peer con SEND_USER_LIST",
-        "Scambiare i costi di esecuzione con CHOOSE_USER",
-        "Assegnare la card all'utente con costo minore",
-        "Spostare la card in Doing dopo ACK_CARD",
-        "Simulare l'esecuzione dell'attivita assegnata",
-        "Completare la card con CARD_DONE",
-        "Gestire QUIT e rimettere la card in To Do",
-        "Controllare gli utenti attivi con PING_USER",
-        "Aggiornare la stampa della lavagna dopo ogni modifica"
+        "Raccogliere i requisiti funzionali del sistema",
+        "Definire i requisiti non funzionali e i vincoli",
+        "Modellare i casi d'uso principali",
+        "Progettare l'architettura dei moduli software",
+        "Definire le interfacce tra i componenti",
+        "Preparare il backlog delle attivita di sviluppo",
+        "Implementare una prima versione del prototipo",
+        "Scrivere test unitari per le funzioni critiche",
+        "Integrare i test nel flusso di compilazione",
+        "Eseguire una code review delle modifiche",
+        "Correggere i bug emersi durante la verifica",
+        "Rifattorizzare il codice duplicato o fragile",
+        "Aggiornare la documentazione tecnica",
+        "Validare il comportamento con scenari realistici",
+        "Preparare il rilascio e la consegna del progetto"
     };
 
     memset(&database, 0, sizeof(database));

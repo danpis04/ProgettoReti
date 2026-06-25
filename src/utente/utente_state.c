@@ -81,9 +81,10 @@ void utente_init(in_port_t port) {
     utente.state = STATE_STARTING_P2P;
     utente.card_id = -1;
     srand(time(NULL));
-    for (in_port_t current_port = MIN_USER_PORT; current_port < port; current_port++) {
-        (void)rand();
-    }
+    // righe necessarie solo se utenti producono stessi numeri casuali
+    // for (in_port_t current_port = MIN_USER_PORT; current_port < port; current_port++) {
+    //     (void)rand();
+    // }
     pthread_mutex_init(&utente.mutex, NULL);
 }
 
