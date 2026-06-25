@@ -636,6 +636,8 @@ check_lavagna_commands_and_ping() {
     local u1_fifo="$WORKDIR/cmd_u1.in"
     local u2_fifo="$WORKDIR/cmd_u2.in"
     local lavagna_pid
+    local user_list_log
+    local user_list_count
 
     cleanup
     mkfifo "$lavagna_fifo" "$u1_fifo" "$u2_fifo"
@@ -674,8 +676,16 @@ check_lavagna_commands_and_ping() {
     printf 'MOVE_CARD 2 TODO\n' >&9
     wait_for_log "MOVE_CARD da lavagna" 30 'Card ID: 2' "$lavagna_log"
 
-    printf 'SEND_USER_LIST 5684\n' >&9
-    wait_for_log "SEND_USER_LIST da lavagna" 30 'Lista utenti ricevuta' "$WORKDIR/cmd_u5684.log"
+    if [ "$winner" = "5681" ]; then
+        user_list_log="$WORKDIR/cmd_u5681.log"
+    elif [ "$winner" = "5684" ]; then
+        user_list_log="$WORKDIR/cmd_u5684.log"
+    else
+        fail "porta vincitrice non riconosciuta"
+    fi
+    user_list_count="$(grep -c 'Lista utenti ricevuta' "$user_list_log" 2>/dev/null || true)"
+    printf 'SEND_USER_LIST %s\n' "$winner" >&9
+    wait_for_count "SEND_USER_LIST da lavagna" 60 'Lista utenti ricevuta' "$user_list_log" $((user_list_count + 1))
 
     printf 'QUIT\n' >&9
     wait_for_count "QUIT rifiutato sulla lavagna" 30 'Comando non valido per la lavagna' "$lavagna_log" 2

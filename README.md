@@ -1,8 +1,5 @@
 # Progetto Reti Informatiche 2025/2026
 
-Applicazione distribuita in C11 che implementa una lavagna kanban per matricola pari.
-La lavagna ascolta su `127.0.0.1:5678`; ogni utente apre un server P2P su una porta da `5679` in poi.
-
 ## Compilazione
 
 ```sh
@@ -46,31 +43,3 @@ E' disponibile anche l'avvio senza parametro:
 ```
 
 In questo caso il processo sceglie la prima porta libera a partire da `5679`.
-
-## Comandi
-
-Sulla lavagna:
-
-```text
-SHOW_LAVAGNA
-SHOW_UTENTI
-MOVE_CARD <id> <TODO|DOING|DONE> [porta]
-SEND_USER_LIST <porta>
-PING_USER <porta>
-AVAILABLE_CARD
-```
-
-Sugli utenti:
-
-```text
-CREATE_CARD <id> <TODO|DOING|DONE> <descrizione>
-SHOW_LAVAGNA
-HELLO
-CHOOSE_USER [costo]
-ACK_CARD [id]
-CARD_DONE [id]
-PONG_LAVAGNA
-QUIT
-```
-
-Con almeno due utenti registrati, la lavagna invia `AVAILABLE_CARD`; gli utenti si scambiano `CHOOSE_USER`, il costo minore vince la card e lo comunica con `ACK_CARD`. Al completamento viene inviato `CARD_DONE`. I comandi `CHOOSE_USER`, `ACK_CARD` e `CARD_DONE` da terminale sono disponibili quando l'utente ha una card corrente.
