@@ -17,6 +17,7 @@ struct Client *client_create(struct ClientConfig config) {
     client->server_message_callback = config.server_message_callback;
     client->stdin_message_callback = config.stdin_message_callback;
 
+    // Stdin e' opzionale: nei processi automatici puo essere chiuso.
     if (client->stdin_message_callback != NULL) {
         FD_SET(STDIN_FILENO, &client->master_set);
         client->stdin_enabled = true;
@@ -39,6 +40,7 @@ int client_connect_to_server(struct Client *client) {
         return -1;
     }
 
+    // Dopo la connect il socket della lavagna entra nel set monitorato.
     FD_SET(client->server_socket, &client->master_set);
     if (client->server_socket > client->max_fd) {
         client->max_fd = client->server_socket;
@@ -79,6 +81,7 @@ int client_listen(struct Client *client) {
         return 0;
     }
 
+    // Ogni descrittore pronto viene delegato alla callback corrispondente.
     if (client->stdin_enabled && FD_ISSET(STDIN_FILENO, &read_fds)) {
         int result = client->stdin_message_callback(&client->server_socket);
         if (result == CALLBACK_REMOVE_STDIN) {

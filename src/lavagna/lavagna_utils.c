@@ -25,6 +25,7 @@ int send_user_list(int socket_fd, in_port_t excluded_port) {
         return -1;
     }
 
+    // Payload: numero totale utenti, numero peer, lista porte peer.
     write_u32(buffer, &offset, (uint32_t)database_get_num_users());
     write_u32(buffer, &offset, (uint32_t)count);
     for (int i = 0; i < count; i++) {
@@ -83,6 +84,7 @@ static int fill_available_payload(char *buffer, int card_id, in_port_t recipient
         return -1;
     }
 
+    // Payload: id card, totale utenti, lista peer senza destinatario, testo card.
     write_u32(buffer, &offset, (uint32_t)card_id);
     write_u32(buffer, &offset, (uint32_t)database_get_num_users());
 
@@ -107,6 +109,7 @@ int send_available_card(struct Server *server) {
     int user_count;
     int card_id;
 
+    // Si offre una card solo se non ci sono offerte o lavori gia in corso.
     if (database_get_offered_card() != -1 || database_has_doing_cards()
             || database_get_num_users() <= 1) {
         return 0;
@@ -125,6 +128,7 @@ int send_available_card(struct Server *server) {
 
     database_set_offered_card(card_id);
 
+    // Tutti gli utenti ricevono la stessa card e votano via P2P.
     for (int i = 0; i < user_count; i++) {
         char payload[MAX_PAYLOAD_SIZE];
         int payload_length = fill_available_payload(payload, card_id, users[i]);
@@ -222,6 +226,7 @@ void disconnect_user(struct Server *server, in_port_t user_port) {
         (void)server_remove_client(server, socket_fd);
     }
 
+    // Se l'utente aveva una card in Doing, la rimette in To Do.
     (void)database_card_todo(user_port);
     (void)database_remove_user(user_port);
     database_clear_offered_card();
@@ -241,6 +246,7 @@ static void check_working_timeout(struct Server *server) {
         return;
     }
 
+    // Prima di rimuovere un utente attivo gli viene chiesto un PONG.
     for (int i = 0; i < count; i++) {
         in_port_t port = database_card_get_user(card_ids[i]);
         int socket_fd = database_get_socket_from_port(port);
@@ -263,6 +269,7 @@ static void check_ping_timeout(struct Server *server) {
         return;
     }
 
+    // Gli utenti che non rispondono al ping vengono rimossi dalla lavagna.
     for (int i = 0; i < count; i++) {
         int socket_fd = database_get_socket_from_port(ports[i]);
         if (socket_fd >= 0) {

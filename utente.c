@@ -36,6 +36,8 @@ static int parse_available_card(const struct Message *msg, int *card_id, int *to
     if (*total_users < 2 || *total_users > MAX_USERS) {
         return -1;
     }
+
+    // La lista contiene tutti gli utenti tranne il destinatario del messaggio.
     *peer_count = *total_users - 1;
 
     peer_bytes = (size_t)(*peer_count) * sizeof(uint32_t);
@@ -75,6 +77,7 @@ static int parse_optional_card_id(const struct Message *msg, int *card_id) {
 }
 
 static int handle_stdin_message(int server_fd, const struct Message *msg) {
+    // Comandi manuali disponibili dal terminale dell'utente.
     switch (msg->type) {
         case MSG_HELLO:
             if (send_server_hello(server_fd) < 0) {
@@ -227,6 +230,7 @@ static int handle_available_card(const struct Message *msg) {
 
     int n = rand();
 
+    // Ogni utente registra il proprio costo e lo invia ai peer.
     utente_start_election(card_id, text, total_users, peers, peer_count, n);
     pause_milliseconds(200);
     (void)p2p_broadcast_choose(card_id, n, peers, peer_count);
@@ -235,6 +239,7 @@ static int handle_available_card(const struct Message *msg) {
 }
 
 static int handle_server_message(int server_fd, const struct Message *msg) {
+    // Messaggi provenienti dalla lavagna centrale.
     switch (msg->type) {
         case MSG_AVAILABLE_CARD:
             return handle_available_card(msg);
@@ -250,6 +255,7 @@ static int handle_server_message(int server_fd, const struct Message *msg) {
                 return -1;
             }
 
+            // Payload: totale utenti, numero peer, lista delle porte peer.
             total = (int)read_u32((const char *)msg->payload, &offset);
             raw_count = read_u32((const char *)msg->payload, &offset);
             if (raw_count > MAX_USERS) {
@@ -312,6 +318,7 @@ static int handle_server(void *args) {
 static int run_pending_actions(int server_fd) {
     int card_id;
 
+    // Le callback P2P aggiornano lo stato; il loop principale parla con la lavagna.
     if (utente_take_ack_action(&card_id)) {
         fprintf(stdout, "Invio ACK_CARD per card %d\n", card_id);
         if (send_server_ack_card(server_fd, card_id) < 0) {
@@ -325,6 +332,7 @@ static int run_pending_actions(int server_fd) {
     }
 
     if (utente_take_done_action(&card_id)) {
+        // CARD_DONE viene inviato solo dopo la chiusura ordinata del worker.
         utente_wait_for_worker_shutdown();
         fprintf(stdout, "Invio CARD_DONE per card %d\n", card_id);
         if (send_server_card_done(server_fd, card_id) < 0) {
@@ -350,6 +358,7 @@ static int parse_port_argument(const char *text, in_port_t *port) {
 static int start_p2p_on_port(in_port_t port) {
     utente_init(port);
 
+    // Il server P2P deve essere pronto prima della HELLO alla lavagna.
     if (utente_start_p2p(p2p_server_function) < 0) {
         utente_cleanup();
         return -1;
@@ -406,6 +415,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
+    // Porta esplicita se indicata, altrimenti prima porta libera nel range utenti.
     if (argc == 2) {
         if (start_p2p_on_port(port) < 0) {
             fprintf(stderr, "Porta utente %u non disponibile\n", (unsigned)port);
@@ -448,6 +458,7 @@ int main(int argc, char *argv[]) {
     }
     utente_update_state(STATE_IDLE);
 
+    // Loop principale: eventi da lavagna/stdin e azioni pendenti generate dai thread.
     while (running && utente_get_state() != STATE_SHUTTING_DOWN) {
         if (client_listen(client) < 0) {
             running = 0;

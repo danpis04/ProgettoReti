@@ -1,5 +1,6 @@
 #include "../../include/utente_state.h"
 
+// Stato globale dell'utente, condiviso tra main thread, P2P e worker.
 static struct Utente utente;
 
 static void reset_choices_locked(void) {
@@ -12,6 +13,7 @@ static void reset_choices_locked(void) {
 }
 
 static void add_choice_locked(in_port_t port, int cost) {
+    // Ogni peer puo contribuire una sola scelta per elezione.
     for (int i = 0; i < MAX_USERS; i++) {
         if (utente.choices[i].used && utente.choices[i].port == port) {
             return;
@@ -42,6 +44,7 @@ static int choose_winner_locked(void) {
         if (!found
                 || utente.choices[i].cost < best_cost
                 || (utente.choices[i].cost == best_cost && utente.choices[i].port < best_port)) {
+            // Vince il costo minore; a parita vince la porta piu bassa.
             found = true;
             best_cost = utente.choices[i].cost;
             best_port = utente.choices[i].port;
@@ -59,6 +62,7 @@ static void evaluate_election_locked(void) {
         return;
     }
 
+    // L'elezione termina solo quando sono arrivate tutte le proposte.
     winner = choose_winner_locked();
     fprintf(stdout, "CHOOSE_USER completato per card %d: vincitore %d\n",
             utente.card_id, winner);
@@ -136,6 +140,7 @@ void utente_start_election(int card_id, const char *text, int total_users,
                            const in_port_t *peers, int peer_count, int own_cost) {
     pthread_mutex_lock(&utente.mutex);
 
+    // Una nuova card azzera le scelte della precedente elezione.
     if (utente.card_id != card_id) {
         reset_choices_locked();
     }
@@ -181,6 +186,7 @@ bool utente_take_ack_action(int *card_id) {
 
     pthread_mutex_lock(&utente.mutex);
     if (utente.state == STATE_ACK_PENDING) {
+        // Il main thread marcera WORKING dopo l'invio di ACK_CARD.
         *card_id = utente.card_id;
         ready = true;
     }
@@ -224,6 +230,7 @@ bool utente_take_done_action(int *card_id) {
 
     pthread_mutex_lock(&utente.mutex);
     if (utente.state == STATE_DONE_PENDING) {
+        // Consuma l'azione e libera lo stato locale della card.
         *card_id = utente.card_id;
         utente.state = STATE_IDLE;
         utente.card_id = -1;
@@ -291,6 +298,7 @@ int utente_start_worker(void *(*thread_function)(void *)) {
         pthread_mutex_unlock(&utente.mutex);
         return -1;
     }
+    // Protegge dall'avvio di due worker contemporanei per lo stesso utente.
     utente.worker_started = true;
     pthread_mutex_unlock(&utente.mutex);
 

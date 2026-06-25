@@ -26,6 +26,7 @@ static int read_card_id_payload(const struct Message *msg, int *card_id) {
 static int handle_client_message(int socket_fd, const struct Message *msg) {
     in_port_t user_port = database_get_port_from_socket(socket_fd);
 
+    // Gestisce i messaggi provenienti dagli utenti registrati sulla lavagna.
     switch (msg->type) {
         case MSG_HELLO: {
             size_t offset = 0;
@@ -42,6 +43,7 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
             }
 
             database_print_users();
+            // Una nuova registrazione puo rendere possibile una nuova offerta.
             (void)send_available_card(lavagna_server);
             break;
         }
@@ -64,6 +66,7 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
 
             fprintf(stdout, "Card %d creata\n", created_id);
             database_print_cards();
+            // Dopo una creazione si tenta subito l'assegnazione della prossima card.
             (void)send_available_card(lavagna_server);
             break;
         }
@@ -92,6 +95,7 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
                 break;
             }
 
+            // L'ACK valido sposta la card da To Do a Doing.
             database_clear_offered_card();
             database_print_cards();
             break;
@@ -111,6 +115,7 @@ static int handle_client_message(int socket_fd, const struct Message *msg) {
             }
 
             database_print_cards();
+            // Dopo il completamento si libera la lavagna per una nuova offerta.
             (void)send_available_card(lavagna_server);
             break;
         }
@@ -146,6 +151,7 @@ static int handle_client(void *args) {
 
     ssize_t bytes = receive_message(socket_fd, &msg);
     if (bytes <= 0) {
+        // Una chiusura inattesa viene trattata come disconnessione dell'utente.
         in_port_t port = database_get_port_from_socket(socket_fd);
         if (port != 0) {
             fprintf(stdout, "Connessione chiusa dall'utente %u\n", (unsigned)port);
@@ -164,6 +170,7 @@ static int handle_client(void *args) {
 }
 
 static int handle_stdin_message(const struct Message *msg) {
+    // Comandi disponibili direttamente dal terminale della lavagna.
     switch (msg->type) {
         case MSG_SHOW_LAVAGNA:
             database_print_cards();
@@ -184,6 +191,7 @@ static int handle_stdin_message(const struct Message *msg) {
             }
             database_clear_offered_card();
             database_print_cards();
+            // MOVE_CARD puo liberare o creare spazio per una nuova negoziazione.
             (void)send_available_card(lavagna_server);
             break;
 
@@ -291,6 +299,7 @@ int main(void) {
     fprintf(stdout, "Lavagna avviata sulla porta %d\n", SERVER_PORT);
     database_print_cards();
 
+    // Loop principale: eventi di rete/stdin e controllo periodico dei timeout.
     while (active && server_run(lavagna_server) == 0) {
         if (time(NULL) % TIMEOUT_CHECK_PERIOD == 0) {
             check_timeout(lavagna_server);

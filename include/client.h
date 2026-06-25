@@ -3,8 +3,10 @@
 
 #include "common.h"
 
+// Callback invocata quando il client riceve un evento da gestire.
 typedef int (*ClientCallback)(void *);
 
+// Stato del client connesso alla lavagna.
 struct Client {
     int server_socket;
     struct sockaddr_in server_addr;
@@ -15,6 +17,7 @@ struct Client {
     ClientCallback stdin_message_callback;
 };
 
+// Parametri necessari per creare il client.
 struct ClientConfig {
     int server_ip;
     in_port_t server_port;
@@ -22,6 +25,7 @@ struct ClientConfig {
     ClientCallback stdin_message_callback;
 };
 
+// Ciclo di vita del client.
 struct Client *client_create(struct ClientConfig config);
 int client_connect_to_server(struct Client *client);
 int client_listen(struct Client *client);

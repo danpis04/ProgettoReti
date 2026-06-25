@@ -14,6 +14,7 @@ static int handle_peer_message(const struct Message *msg) {
             return -1;
         }
 
+        // Payload P2P: id card, porta mittente, costo proposto.
         card_id = (int)read_u32((const char *)msg->payload, &offset);
         sender_port = (in_port_t)read_u32((const char *)msg->payload, &offset);
         cost = (int)read_u32((const char *)msg->payload, &offset);
@@ -57,6 +58,7 @@ void *p2p_server_function(void *arg) {
         return NULL;
     }
 
+    // Da questo momento il main thread puo connettersi alla lavagna.
     utente_update_state(STATE_CONNECTING);
     while (utente_get_state() != STATE_DISCONNECTING
             && utente_get_state() != STATE_SHUTTING_DOWN

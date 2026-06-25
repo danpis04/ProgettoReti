@@ -1,5 +1,6 @@
 #include "../../include/database.h"
 
+// Database globale: accessibile solo tramite le funzioni di questo modulo.
 static struct Database database;
 
 static const char *USER_STATUS_TEXT[] = {
@@ -84,6 +85,7 @@ static void sort_ports(in_port_t *ports, int count) {
     }
 }
 
+// Inizializza la lavagna con le card iniziali del progetto.
 void database_init(void) {
     static const char *initial_cards[] = {
         "Raccogliere i requisiti funzionali del sistema",
@@ -177,6 +179,7 @@ int database_get_users_list(in_port_t **user_ports) {
         }
     }
 
+    // Le porte sono ordinate per rendere deterministiche liste e stampe.
     sort_ports(*user_ports, count);
     return count;
 }
@@ -207,6 +210,7 @@ int database_get_users_list_except(in_port_t excluded_port, in_port_t **user_por
         }
     }
 
+    // Lista usata nei messaggi verso un utente: il destinatario e' escluso.
     sort_ports(*user_ports, count);
     return count;
 }
@@ -431,6 +435,8 @@ int database_card_doing(in_port_t port, int card_id) {
     if (database.users[user_index].status != USER_STATUS_IDLE) {
         return -1;
     }
+
+    // Un utente puo prendere una card solo se e' libero.
     if (database_user_assign_card(port, card_id) < 0) {
         return -1;
     }
@@ -469,6 +475,7 @@ int database_card_todo(in_port_t port) {
         return 0;
     }
 
+    // Usata quando un utente cade: il lavoro incompleto torna disponibile.
     int card_index = find_card_index(card_id);
     if (card_index >= 0 && database.cards[card_index].status == CARD_STATUS_DOING) {
         database.cards[card_index].status = CARD_STATUS_TODO;
@@ -487,11 +494,13 @@ int database_move_card(int card_id, enum CardStatus status, in_port_t port) {
     }
 
     if (status == CARD_STATUS_TODO) {
+        // Spostando in To Do si libera l'utente eventualmente associato.
         if (database.cards[index].assigned_user_port != 0) {
             (void)database_user_clear_card(database.cards[index].assigned_user_port);
         }
         database.cards[index].assigned_user_port = 0;
     } else {
+        // Doing e Done richiedono una porta utente esplicita.
         if (port == 0 || database_user_assign_card(port, card_id) < 0) {
             return -1;
         }
@@ -527,6 +536,7 @@ int database_card_get_timed_out(int **card_ids, int timeout) {
         return -1;
     }
 
+    // Raccoglie le card Doing ferme oltre la soglia indicata.
     for (int i = 0; i < MAX_CARDS; i++) {
         if (database.cards[i].used && database.cards[i].status == CARD_STATUS_DOING) {
             if (difftime(now, database.cards[i].last_activity_timestamp) >= timeout) {

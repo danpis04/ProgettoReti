@@ -2,6 +2,7 @@
 #include "../../include/protocol.h"
 #include "../../include/utente_state.h"
 
+// Apre una connessione breve verso un peer e invia la proposta di costo.
 static int send_choose_to_peer(in_port_t peer_port, int card_id, int cost) {
     int peer_socket = socket(AF_INET, SOCK_STREAM, 0);
     char payload[sizeof(uint32_t) * 3];
@@ -26,6 +27,7 @@ static int send_choose_to_peer(in_port_t peer_port, int card_id, int cost) {
     write_u32(payload, &offset, (uint32_t)utente_get_port());
     write_u32(payload, &offset, (uint32_t)cost);
 
+    // Payload: id card, porta mittente, costo proposto.
     struct Message msg = {
         .type = MSG_CHOOSE_USER,
         .payload_length = (uint32_t)offset,
@@ -44,6 +46,7 @@ static int send_choose_to_peer(in_port_t peer_port, int card_id, int cost) {
 int p2p_broadcast_choose(int card_id, int cost, const in_port_t *peers, int peer_count) {
     int sent = 0;
 
+    // Ogni peer riceve un messaggio indipendente.
     for (int i = 0; i < peer_count; i++) {
         if (send_choose_to_peer(peers[i], card_id, cost) == 0) {
             sent++;

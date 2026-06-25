@@ -1,5 +1,6 @@
 #include "../../include/protocol.h"
 
+// Tabella usata sia per stampare i messaggi sia per riconoscere i comandi.
 static const char *MESSAGE_TO_STRING[NUM_MSG_TYPES] = {
     [MSG_HELLO] = "HELLO",
     [MSG_QUIT] = "QUIT",
@@ -23,6 +24,7 @@ const char *message_type_to_string(uint32_t type) {
     return MESSAGE_TO_STRING[type];
 }
 
+// Scrive un intero nel payload mantenendo l'ordine di rete.
 void write_u32(char *buffer, size_t *offset, uint32_t value) {
     uint32_t network_value = htonl(value);
     memcpy(buffer + *offset, &network_value, sizeof(network_value));
@@ -36,6 +38,7 @@ uint32_t read_u32(const char *buffer, size_t *offset) {
     return ntohl(network_value);
 }
 
+// send/recv possono trasferire meno byte del richiesto: questi helper completano il blocco.
 static ssize_t send_all(int socket_fd, const void *buffer, size_t length) {
     size_t sent = 0;
     const char *cursor = (const char *)buffer;
@@ -86,6 +89,7 @@ ssize_t send_message(int socket_fd, const struct Message *msg) {
     header[0] = htonl(msg->type);
     header[1] = htonl(msg->payload_length);
 
+    // Il formato sul socket e': tipo, lunghezza payload, payload opzionale.
     if (send_all(socket_fd, header, sizeof(header)) < 0) {
         return -1;
     }
@@ -109,6 +113,7 @@ ssize_t receive_message(int socket_fd, struct Message *msg) {
     msg->type = ntohl(header[0]);
     msg->payload_length = ntohl(header[1]);
 
+    // La capacity iniziale di msg->payload_length limita quanto possiamo leggere.
     if (msg->type == MSG_ERR || msg->type >= NUM_MSG_TYPES) {
         return -1;
     }
@@ -176,6 +181,7 @@ ssize_t get_command_line_input(struct Message *msg) {
         return 0;
     }
 
+    // La prima parola individua il tipo di messaggio, il resto diventa payload.
     for (uint32_t type = 1; type < NUM_MSG_TYPES; type++) {
         const char *command = MESSAGE_TO_STRING[type];
         size_t command_length;

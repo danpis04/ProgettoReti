@@ -2,6 +2,7 @@
 #include "../../include/protocol.h"
 #include "../../include/utente_state.h"
 
+// Helper per i messaggi che hanno come unico payload l'id della card.
 static int send_card_id_message(int server_fd, uint32_t type, int card_id) {
     char payload[sizeof(uint32_t)];
     size_t offset = 0;
@@ -29,6 +30,7 @@ int send_server_hello(int server_fd) {
         .payload = payload
     };
 
+    // La HELLO contiene la porta su cui l'utente accetta messaggi P2P.
     return send_message(server_fd, &msg) < 0 ? -1 : 0;
 }
 

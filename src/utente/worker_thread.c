@@ -1,6 +1,7 @@
 #include "../../include/thread.h"
 #include "../../include/utente_state.h"
 
+// Simula il lavoro sulla card assegnata e notifica il main thread a fine lavoro.
 void *worker_thread_function(void *arg) {
     (void)arg;
 

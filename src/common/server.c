@@ -1,6 +1,7 @@
 #include "../../include/server.h"
 #include "../../include/protocol.h"
 
+// Aggiunge un descrittore al set usato da select.
 static int server_add_fd(struct Server *server, int fd) {
     if (fd < 0 || fd >= FD_SETSIZE) {
         return -1;
@@ -87,6 +88,7 @@ int server_init(struct Server *server) {
         return -1;
     }
 
+    // Evita che una write su socket chiuso termini il processo.
     signal(SIGPIPE, SIG_IGN);
 
     if (server_add_fd(server, server->socket_fd) < 0) {
@@ -124,6 +126,7 @@ int server_run(struct Server *server) {
         }
 
         if (fd == server->socket_fd) {
+            // Nuova connessione in ingresso: viene solo registrata nel set.
             struct sockaddr_in client_addr;
             socklen_t addr_len = sizeof(client_addr);
             int new_fd = accept(server->socket_fd, (struct sockaddr *)&client_addr, &addr_len);
@@ -135,6 +138,7 @@ int server_run(struct Server *server) {
         }
 
         if (server->stdin_enabled && fd == STDIN_FILENO) {
+            // I comandi da terminale sono gestiti dalla callback della lavagna.
             int result = server->stdin_message_callback(NULL);
             if (result == CALLBACK_REMOVE_STDIN) {
                 server_remove_stdin(server);
@@ -145,6 +149,7 @@ int server_run(struct Server *server) {
         }
 
         if (server->client_message_callback != NULL) {
+            // Messaggio da un client gia registrato.
             int arg = fd;
             if (server->client_message_callback(&arg) < 0 && FD_ISSET(fd, &server->master_set)) {
                 server_remove_client(server, fd);
